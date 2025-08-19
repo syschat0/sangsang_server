@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mabatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.bnksys.sangsang.mapper.UserMapper">
+
+    <select id="selectUserDupChk" parameterType="HashMap" resultType="String">
+        SELECT case when COUNT(*) = 0 then 'N' ELSE 'Y' END
+        FROM TB_사용자
+        WHERE email = #{email}
+    </select>
+
+    <insert id="insertUserRegister" parameterType="HashMap">
+        INSERT INTO TB_사용자 ( email,name,password)
+        VALUES(
+               #{email}
+            ,  #{name}
+            ,  #{password}
+              )
+    </insert>
+
+    <select id="selectUserLogin" parameterType="HashMap" resultType="HashMap">
+        SELECT  email
+             , name
+        FROM TB_사용자
+        WHERE email     = #{email}
+          AND PASSWORD  = #{password}
+    </select>
+
+
+
+
+</mapper>

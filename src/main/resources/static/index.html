@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>스무고개 능력치 테스트</title>
+  <style>
+    :root{
+      --bg:#0b1020; --card:rgba(255,255,255,0.08); --card-border:rgba(255,255,255,0.15);
+      --text:#e8ecf1; --muted:#a7b0be; --primary:#7aa2ff; --primary-strong:#4f7bff;
+      --success:#3ddc97; --danger:#ff6b6b;
+    }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0; background:
+            radial-gradient(1200px 800px at 20% -10%, #1a2244 0%, transparent 60%),
+            radial-gradient(1200px 800px at 120% 110%, #16203a 0%, transparent 60%),
+            var(--bg);
+      color:var(--text); font:16px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Pretendard,Malgun Gothic,sans-serif;
+      display:flex; align-items:center; justify-content:center; padding:24px;}
+    .card{width:100%; max-width:780px; border:1px solid var(--card-border);
+      background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+      backdrop-filter:blur(8px); border-radius:20px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,0.35);
+      animation:floatIn .35s ease-out}
+    @keyframes floatIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .title{font-weight:700;letter-spacing:.2px;font-size:20px}
+    .row{display:flex;gap:8px;align-items:center}
+    .badge{background:rgba(255,255,255,0.08);border:1px solid var(--card-border);padding:6px 10px;border-radius:999px;font-size:12px;color:var(--muted)}
+    .counter{font-weight:600;color:var(--muted);font-size:14px}
+    .progress-wrap{width:100%;height:10px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;border:1px solid var(--card-border);margin-bottom:20px}
+    .progress{height:100%;width:0%;background:linear-gradient(90deg, var(--primary), var(--primary-strong));transition:width .35s ease}
+    .question{font-size:22px;line-height:1.55;letter-spacing:.2px;margin:16px 0 18px}
+    .input-row{display:flex;gap:12px;align-items:center}
+    input[type="text"]{flex:1;padding:14px 16px;border-radius:12px;border:1px solid var(--card-border);background:rgba(255,255,255,0.07);color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s}
+    input[type="text"]::placeholder{color:#9aa6b2}
+    input[type="text"]:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(122,162,255,0.18)}
+    button{padding:14px 18px;border-radius:12px;border:1px solid rgba(122,162,255,0.35);
+      background:linear-gradient(180deg, var(--primary), var(--primary-strong));
+      color:white;font-weight:700;letter-spacing:.2px;cursor:pointer;min-width:110px;transition:transform .04s,filter .2s,opacity .2s}
+    button:hover{filter:brightness(1.03)} button:active{transform:translateY(1px)} button:disabled{opacity:.55;cursor:wait}
+    .sub{margin-top:10px;color:var(--muted);font-size:13px}
+    .result{background:rgba(61,220,151,0.07);border:1px solid rgba(61,220,151,0.3);padding:16px;border-radius:12px;margin-top:16px;font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;max-height:55vh;overflow:auto}
+    .toast{position:fixed;right:18px;bottom:18px;padding:12px 14px;border-radius:12px;background:rgba(255,107,107,0.14);border:1px solid rgba(255,107,107,0.35);color:#ffd1d1;box-shadow:0 8px 24px rgba(0,0,0,0.35);font-size:14px;display:none}
+    .spinner{width:16px;height:16px;border:3px solid rgba(255,255,255,.25);border-top-color:white;border-radius:50%;margin-left:8px;display:none;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="title">스무고개 능력치 테스트</div>
+    <div class="row">
+      <span class="badge">세션 <span id="session">-</span></span>
+      <div class="counter"><span id="idx">0</span> / <span id="total">20</span></div>
+    </div>
+  </div>
+
+  <div class="progress-wrap"><div id="bar" class="progress"></div></div>
+
+  <div id="question" class="question">질문을 불러오는 중…</div>
+
+  <div class="input-row">
+    <input id="answer" type="text" placeholder="여기에 답변을 입력하고 Enter 또는 제출을 누르세요" autocomplete="off" />
+    <button id="submitBtn" onclick="sendAnswer()">
+      제출 <span id="spin" class="spinner"></span>
+    </button>
+  </div>
+  <div class="sub">* 매 질문은 LLM이 즉석에서 생성합니다. (총 20문항)</div>
+
+  <div id="result" class="result" style="display:none"></div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+  const TOTAL = 20;
+  let sessionId = null;
+  let index = 0;
+
+  const $ = (id)=>document.getElementById(id);
+  const qEl=$('question'), aEl=$('answer'), idxEl=$('idx'), totEl=$('total'), barEl=$('bar');
+  const btn=$('submitBtn'), spin=$('spin'), sessionEl=$('session'), resultEl=$('result'), toastEl=$('toast');
+  totEl.textContent = String(TOTAL);
+
+  function setLoading(on){ btn.disabled=on; spin.style.display=on?'inline-block':'none'; }
+  function setProgress(i){ idxEl.textContent=String(i); barEl.style.width=Math.round((i-1)/TOTAL*100)+'%'; }
+  function toast(msg){ toastEl.textContent=msg; toastEl.style.display='block'; setTimeout(()=>toastEl.style.display='none', 3000); }
+
+  async function createSession(){
+    const res = await fetch('/api/session', {method:'POST'});
+    if(!res.ok) throw new Error('세션 발급 실패');
+    const data = await res.json();
+    sessionId = data.sessionId;
+    sessionStorage.setItem('sessionId', String(sessionId));
+    sessionEl.textContent = String(sessionId);
+  }
+
+  async function ensureSession(){
+    const saved = sessionStorage.getItem('sessionId');
+    if(saved){ sessionId = Number(saved); sessionEl.textContent = String(sessionId); return; }
+    await createSession();
+  }
+
+  async function postAnswer(ans){
+    setLoading(true);
+    try{
+      const body = new URLSearchParams({ sessionId:String(sessionId), answer: ans ?? '' });
+      const res = await fetch('/api/answer', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+      if(!res.ok) throw new Error('요청 오류: '+res.status);
+      return await res.json();
+    }catch(e){
+      toast(e.message||'요청 중 오류');
+      throw e;
+    }finally{ setLoading(false); }
+  }
+
+  async function initFirstQuestion(){
+    try{
+      await ensureSession();
+      const data = await postAnswer(''); // 첫 질문 생성 요청
+      applyIndex(data);
+      if(data.question){ qEl.textContent = data.question; index = data.index ?? 1; setProgress(index); aEl.focus(); }
+      else { qEl.textContent = '질문을 가져오지 못했습니다.'; }
+    }catch(e){}
+  }
+
+  function applyIndex(data){
+    if(Number.isFinite(data?.index) && Number.isFinite(data?.total)){
+      index = data.index;
+      totEl.textContent = String(data.total);
+      setProgress(index);
+    }
+  }
+
+  async function sendAnswer(){
+    const val = aEl.value.trim();
+    const data = await postAnswer(val);
+
+    if(data.done){
+      qEl.textContent='평가가 완료되었습니다.';
+      aEl.disabled = true; btn.disabled = true;
+      resultEl.style.display='block';
+      resultEl.textContent = JSON.stringify(data.scores, null, 2);
+      applyIndex({index:TOTAL,total:TOTAL});
+      return;
+    }
+
+    applyIndex(data);
+
+    if(typeof data.question === 'string'){
+      qEl.textContent = data.question;
+      aEl.value='';
+      aEl.focus();
+    }else{
+      toast('다음 질문을 가져오지 못했습니다.');
+    }
+  }
+
+  aEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ sendAnswer(); } });
+
+  window.addEventListener('load', initFirstQuestion);
+</script>
+</body>
+</html>
