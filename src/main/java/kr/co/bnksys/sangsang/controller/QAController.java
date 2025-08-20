@@ -1,5 +1,6 @@
 package kr.co.bnksys.sangsang.controller;
 
+import kr.co.bnksys.sangsang.mapper.QaMapper;
 import kr.co.bnksys.sangsang.model.QuestionAnswer;
 import kr.co.bnksys.sangsang.model.UserSession;
 import kr.co.bnksys.sangsang.repository.QARepository;
@@ -7,9 +8,11 @@ import kr.co.bnksys.sangsang.repository.UserSessionRepository;
 import kr.co.bnksys.sangsang.service.LLMService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +27,10 @@ public class QAController {
     private final QARepository qaRepository;
     private final UserSessionRepository userSessionRepository;
     private final LLMService llmService;
+
+
+    @Autowired
+    QaMapper qaMapper;
 
     public QAController(QARepository qaRepository,
                         UserSessionRepository userSessionRepository,
@@ -40,12 +47,11 @@ public class QAController {
         return Map.of("sessionId", s.getSessionId());
     }
 
-    // 질문/답변 진행
     @PostMapping("/answer")
-    public Map<String, Object> submitAnswer(@RequestParam Long sessionId,
+    public Map<String, Object> submitAnswer(@RequestParam String sessionId,
                                             @RequestParam(required = false) String answer) {
 
-        // 현재까지 저장된 레코드 수(질문/답변 혼재)
+        // 지금까지 저장된 레코드 수
         long count = qaRepository.countBySessionId(sessionId);
 
         // 1) 첫 호출: 첫 질문 생성
@@ -55,37 +61,43 @@ public class QAController {
             return Map.of("done", false, "question", q, "index", 1, "total", TOTAL);
         }
 
-        // 2) 사용자 답변 저장(공백 제외)
-        if (answer != null && !answer.isBlank()) {
-            QuestionAnswer a = new QuestionAnswer();
-            a.setSessionId(sessionId);
-            a.setAnswerText(answer);
-            qaRepository.save(a);
+        // 2) 마지막 질문 row 가져오기
+        QuestionAnswer lastQA = qaRepository.findTopBySessionIdOrderByIdDesc(sessionId)
+                .orElseThrow(() -> new RuntimeException("질문을 찾을 수 없음"));
+
+        // 3) 답변 저장 (UPDATE)
+        if (answer != null && !answer.isBlank() && lastQA.getAnswerText() == null) {
+            lastQA.setAnswerText(answer);
+            qaRepository.save(lastQA);
         }
 
-        // 3) 진행 카운트 재확인
-        count = qaRepository.countBySessionId(sessionId);
-
-        // 4) 완료 조건(간단판: 레코드 수가 TOTAL 이상이면 완료로 간주)
-        if (count >= TOTAL) {
+        // 4) 완료 여부 확인
+        long answeredCount = qaRepository.countBySessionIdAndAnswerTextIsNotNull(sessionId);
+        if (answeredCount >= TOTAL) {
             List<String> answers = qaRepository.findBySessionIdOrderByIdAsc(sessionId).stream()
                     .map(QuestionAnswer::getAnswerText)
                     .filter(v -> v != null && !v.isBlank())
                     .toList();
 
-            var scores = llmService.evaluate(answers);
+            Map<String,Double> scores = llmService.evaluate(answers);
 
-            // 세션 종료 시각 기록(선택)
-            userSessionRepository.findById(sessionId).ifPresent(s -> {
-                s.setEndTime(LocalDateTime.now());
-                userSessionRepository.save(s);
-            });
+            System.out.println("완료!!! : " + scores.toString());
+            HashMap paramMap = new HashMap();
+            paramMap.putAll(scores);
+            paramMap.put("email",sessionId);
+
+            if ("Y".equals(qaMapper.selectDataDupYn(paramMap))){
+                qaMapper.deleteResultData(paramMap);
+            }
+            qaMapper.insertResultData(paramMap);
 
             return Map.of("done", true, "scores", scores, "index", TOTAL, "total", TOTAL);
+
+
         }
 
         // 5) 다음 질문 생성
-        int nextIndex = (int) Math.min(TOTAL, count + 1);
+        int nextIndex = (int) Math.min(TOTAL, answeredCount + 1);
         String q = safeGenerate(nextIndex, answer == null ? "" : answer);
         saveQuestion(sessionId, q);
 
@@ -110,7 +122,7 @@ public class QAController {
         return fb[Math.min(index - 1, fb.length - 1)];
     }
 
-    private void saveQuestion(Long sessionId, String q) {
+    private void saveQuestion(String sessionId, String q) {
         QuestionAnswer qa = new QuestionAnswer();
         qa.setSessionId(sessionId);
         qa.setQuestionText(q);

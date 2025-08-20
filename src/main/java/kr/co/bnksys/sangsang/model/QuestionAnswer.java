@@ -12,7 +12,7 @@ public class QuestionAnswer {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long sessionId;
+    private String sessionId;
 
     @Column(columnDefinition = "TEXT")
     private String questionText;

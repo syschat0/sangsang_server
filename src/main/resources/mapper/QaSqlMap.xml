@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mabatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.bnksys.sangsang.mapper.QaMapper">
+
+
+    <select id="selectDataDupYn" resultType="String">
+
+        SELECT case when COUNT(*)=0 then 'N' ELSE 'Y' END AS DUP_YN
+        FROM TB_스무고개결과
+        WHERE email=#{email}
+
+    </select>
+
+    <delete id="deleteResultData" parameterType="HashMap">
+        DELETE FROM TB_스무고개결과
+        WHERE email=#{email}
+
+    </delete>
+
+
+    <insert id="insertResultData" parameterType="HashMap">
+        INSERT INTO TB_스무고개결과(
+
+                               email
+                             ,공감사회기술
+                             ,성실성
+                             ,개방성
+                             ,외향성
+                             ,우호성
+                             ,정서안정성
+                             ,기술전문성
+                             ,인지문제해결
+                             ,대인영향력
+                             ,자기관리
+                             ,적응력
+                             ,학습속도
+                             ,대인민첩성
+                             ,성과민첩성
+                             ,자기인식
+                             ,완료일시
+        )
+
+        VALUES(
+                #{email}
+              ,#{공감사회기술}
+              ,#{성실성}
+              ,#{개방성}
+              ,#{외향성}
+              ,#{우호성}
+              ,#{정서안정성}
+              ,#{기술전문성}
+              ,#{인지문제해결}
+              ,#{대인영향력}
+              ,#{자기관리}
+              ,#{적응력}
+              ,#{학습속도}
+              ,#{대인민첩성}
+              ,#{성과민첩성}
+              ,#{자기인식}
+              ,NOW()
+
+              )
+
+    </insert>
+
+
+
+
+
+</mapper>
+
+
