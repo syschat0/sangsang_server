@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.co.bnksys.sangsang.mapper.JobPostingMapper">
+
+    <!-- ResultMap 정의 -->
+    <resultMap id="jobPostingResultMap" type="kr.co.bnksys.sangsang.model.JobPosting">
+        <id property="id" column="id"/>
+        <result property="기관명" column="기관명"/>
+        <result property="공고명" column="공고명"/>
+        <result property="공고시작일" column="공고시작일"/>
+        <result property="공고마감일" column="공고마감일"/>
+        <result property="접수시작일" column="접수시작일"/>
+        <result property="접수마감일" column="접수마감일"/>
+        <result property="접수방법" column="접수방법"/>
+        <result property="접수대행" column="접수대행"/>
+        <result property="일반전형" column="일반전형"/>
+        <result property="채용인원" column="채용인원"/>
+        <result property="채용방법" column="채용방법"/>
+        <result property="전형방법" column="전형방법"/>
+        <result property="임용시기" column="임용시기"/>
+        <result property="임용조건" column="임용조건"/>
+        <result property="담당부서" column="담당부서"/>
+        <result property="연락처" column="연락처"/>
+    </resultMap>
+
+    <!-- ID로 채용공고 조회 -->
+    <select id="selectJobPostingById" parameterType="long" resultMap="jobPostingResultMap">
+        SELECT 
+            id,
+            기관명,
+            공고명,
+            공고시작일,
+            공고마감일,
+            접수시작일,
+            접수마감일,
+            접수방법,
+            접수대행,
+            일반전형,
+            채용인원,
+            채용방법,
+            전형방법,
+            임용시기,
+            임용조건,
+            담당부서,
+            연락처
+        FROM TMP_채용공고_분리
+        WHERE id = #{id}
+    </select>
+
+    <!-- 모든 채용공고 조회 -->
+    <select id="selectAllJobPostings" resultMap="jobPostingResultMap">
+        SELECT 
+            id,
+            기관명,
+            공고명,
+            공고시작일,
+            공고마감일,
+            접수시작일,
+            접수마감일,
+            접수방법,
+            접수대행,
+            일반전형,
+            채용인원,
+            채용방법,
+            전형방법,
+            임용시기,
+            임용조건,
+            담당부서,
+            연락처
+        FROM TMP_채용공고_분리
+        ORDER BY id DESC
+    </select>
+
+    <!-- 채용공고 총 개수 조회 -->
+    <select id="countJobPostings" resultType="long">
+        SELECT COUNT(*) FROM TMP_채용공고_분리
+    </select>
+
+</mapper>
