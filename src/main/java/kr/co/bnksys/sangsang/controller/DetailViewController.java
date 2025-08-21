@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/detail")
-@CrossOrigin(origins = "*")
 public class DetailViewController {
 
     @Autowired
