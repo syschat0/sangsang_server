@@ -2,6 +2,7 @@ package kr.co.bnksys.sangsang.service;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
+import kr.co.bnksys.sangsang.config.LLMProperties;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -12,9 +13,15 @@ import java.util.*;
 @Service
 public class LLMService {
 
-    private static final String OLLAMA_URL  = "http://localhost:11434/api/chat";
-    private static final String MODEL_NAME  = "gemma3:27b";
+    //private static final String OLLAMA_URL  = "http://localhost:11434/api/chat";
+    //private static final String MODEL_NAME  = "gemma3:27b";
     private static final int    TOTAL_QUESTIONS = 20;
+
+    private final LLMProperties props;
+
+    public LLMService(LLMProperties props) {
+        this.props = props;
+    }
 
     private final RestTemplate rest = new RestTemplate();
     private final Gson gson = new GsonBuilder().serializeNulls().create();
@@ -44,12 +51,12 @@ public class LLMService {
         String joined = String.join("\n", answers);
 
         String system = "당신은 심리/역량 평가 분석가입니다. 사용자의 답변을 평가하여 " +
-                "지정된 15개 항목을 0~10의 값으로 점수화합니다. 오직 JSON 객체만 출력합니다. " +
+                "지정된 15개 항목을 0~5의 값으로 점수화합니다. 오직 JSON 객체만 출력합니다. " +
                 "코드펜스나 다른 텍스트를 포함하지 마세요.";
 
-        String user = "다음은 한 지원자의 스무고개 형식 Q/A 답변 모음입니다. 이를 바탕으로 15개 항목을 0~10점으로 평가해 JSON만 출력하세요.\n" +
+        String user = "다음은 한 지원자의 스무고개 형식 Q/A 답변 모음입니다. 이를 바탕으로 15개 항목을 0~5점으로 평가해 JSON만 출력하세요.\n" +
                 "항목: [공감사회기술, 성실성, 개방성, 외향성, 우호성, 정서안정성, 기술전문성, 인지문제해결, 대인영향력, 자기관리, 적응력, 학습속도, 대인민첩성, 성과민첩성, 자기인식, 자기조절]\n" +
-                "예시: {\"공감사회기술\":7.5, \"성실성\":8, ...}\n" +
+                "예시: {\"공감사회기술\":5, \"성실성\":3, ...}\n" +
                 "설명 없이 JSON만:\n\n=== 답변 시작 ===\n" + joined + "\n=== 답변 끝 ===";
 
         String content = callOllama(system, user, true); // format=json
@@ -63,7 +70,7 @@ public class LLMService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("model", MODEL_NAME);
+        body.put("model", props.getModelName());
         body.put("messages", List.of(
                 Map.of("role", "system", "content", system),
                 Map.of("role", "user", "content", user)
@@ -73,7 +80,7 @@ public class LLMService {
             body.put("format", "json"); // JSON 강제
         }
 
-        ResponseEntity<Map> res = rest.postForEntity(OLLAMA_URL, new HttpEntity<>(body, headers), Map.class);
+        ResponseEntity<Map> res = rest.postForEntity(props.getOllamaUrl(), new HttpEntity<>(body, headers), Map.class);
         if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) return null;
 
         Object msg = res.getBody().get("message");
