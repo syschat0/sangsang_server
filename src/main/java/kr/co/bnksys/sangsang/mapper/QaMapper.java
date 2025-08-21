@@ -14,4 +14,5 @@ public interface QaMapper {
     void deleteResultData(HashMap paramMap);
 
 
+
 }

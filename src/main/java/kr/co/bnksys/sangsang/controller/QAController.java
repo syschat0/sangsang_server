@@ -47,9 +47,39 @@ public class QAController {
         return Map.of("sessionId", s.getSessionId());
     }
 
+
+    // 완료데이터 처리
+    private Map<String,Double> fn_getScoreData(String sessionId){
+
+        List<String> answers = qaRepository.findBySessionIdOrderByIdAsc(sessionId).stream()
+                .map(QuestionAnswer::getAnswerText)
+                .filter(v -> v != null && !v.isBlank())
+                .toList();
+
+        Map<String,Double> scores = llmService.evaluate(answers);
+
+        return scores;
+    }
+
+
+
+
     @PostMapping("/answer")
     public Map<String, Object> submitAnswer(@RequestParam String sessionId,
                                             @RequestParam(required = false) String answer) {
+
+        log.info("==AI 매칭 스무고개 답변 수신{} : {}" ,sessionId,answer);
+
+        HashMap paramMap = new HashMap();
+        paramMap.put("email",sessionId);
+
+        // 기 완료여부 확인
+        if ("Y".equals(qaMapper.selectDataDupYn(paramMap))){
+            log.info(">> 해당건은 이미 완료되었음. ");
+            Map<String,Double> scores = fn_getScoreData(sessionId);
+            return Map.of("done", true, "scores", scores, "index", TOTAL, "total", TOTAL);
+        }
+
 
         // 지금까지 저장된 레코드 수
         long count = qaRepository.countBySessionId(sessionId);
@@ -60,7 +90,6 @@ public class QAController {
             saveQuestion(sessionId, q);
             return Map.of("done", false, "question", q, "index", 1, "total", TOTAL);
         }
-
         // 2) 마지막 질문 row 가져오기
         QuestionAnswer lastQA = qaRepository.findTopBySessionIdOrderByIdDesc(sessionId)
                 .orElseThrow(() -> new RuntimeException("질문을 찾을 수 없음"));
@@ -70,30 +99,19 @@ public class QAController {
             lastQA.setAnswerText(answer);
             qaRepository.save(lastQA);
         }
-
         // 4) 완료 여부 확인
         long answeredCount = qaRepository.countBySessionIdAndAnswerTextIsNotNull(sessionId);
         if (answeredCount >= TOTAL) {
-            List<String> answers = qaRepository.findBySessionIdOrderByIdAsc(sessionId).stream()
-                    .map(QuestionAnswer::getAnswerText)
-                    .filter(v -> v != null && !v.isBlank())
-                    .toList();
 
-            Map<String,Double> scores = llmService.evaluate(answers);
-
-            System.out.println("완료!!! : " + scores.toString());
-            HashMap paramMap = new HashMap();
+            Map<String,Double> scores = fn_getScoreData(sessionId);
             paramMap.putAll(scores);
-            paramMap.put("email",sessionId);
-
             if ("Y".equals(qaMapper.selectDataDupYn(paramMap))){
                 qaMapper.deleteResultData(paramMap);
             }
+
             qaMapper.insertResultData(paramMap);
 
             return Map.of("done", true, "scores", scores, "index", TOTAL, "total", TOTAL);
-
-
         }
 
         // 5) 다음 질문 생성
